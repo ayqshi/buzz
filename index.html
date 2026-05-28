@@ -1,0 +1,2499 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buzz — Local Business Discovery</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #050505;
+            --bg2: #0d0d0d;
+            --bg3: #141414;
+            --bg4: #1c1c1c;
+            --bg5: #242424;
+            --border: #242424;
+            --border2: #303030;
+            --border3: #404040;
+            --text: #f0f0f0;
+            --text2: #9a9a9a;
+            --text3: #585858;
+            --accent: #ffffff;
+            --hot: #ef4444;
+            --warm: #f59e0b;
+            --cool: #3b82f6;
+            --good: #22c55e;
+            --glass: rgba(10, 10, 10, 0.92);
+            --mono: 'Space Mono', monospace;
+            --sans: 'DM Sans', sans-serif;
+            --r: 3px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 2px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .mono {
+            font-family: var(--mono);
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 7px;
+            border-radius: 2px;
+            font-size: 9px;
+            font-family: var(--mono);
+            font-weight: 700;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+        }
+
+        .tag.hot {
+            background: rgba(239, 68, 68, .15);
+            color: #ef4444;
+        }
+
+        .tag.warm {
+            background: rgba(245, 158, 11, .15);
+            color: #f59e0b;
+        }
+
+        .tag.cool {
+            background: rgba(59, 130, 246, .15);
+            color: #6fa8ff;
+        }
+
+        .tag.grey {
+            background: var(--bg3);
+            color: var(--text3);
+        }
+
+        #preloader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            transition: opacity .5s ease;
+        }
+
+        #preloader.fade {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .pl-logo {
+            font-family: var(--mono);
+            font-size: 52px;
+            font-weight: 700;
+            letter-spacing: 12px;
+            color: var(--text);
+        }
+
+        .pl-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--text);
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: blink 1.2s ease infinite;
+        }
+
+        .pl-dot:nth-child(2) {
+            animation-delay: .2s;
+        }
+
+        .pl-dot:nth-child(3) {
+            animation-delay: .4s;
+        }
+
+        .pl-msg {
+            margin-top: 24px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--text3);
+            font-family: var(--mono);
+            text-transform: uppercase;
+        }
+
+        @keyframes blink {
+
+            0%,
+            80%,
+            100% {
+                opacity: .2
+            }
+
+            40% {
+                opacity: 1
+            }
+        }
+
+        #landingPage {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            overflow-y: auto;
+            z-index: 9000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .land-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 40px;
+            background: rgba(5, 5, 5, .85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .land-logo {
+            font-family: var(--mono);
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 6px;
+            color: var(--text);
+            cursor: default;
+        }
+
+        .land-logo span {
+            color: var(--text3);
+            font-size: 11px;
+            letter-spacing: 2px;
+            margin-left: 8px;
+            font-weight: 400;
+            vertical-align: middle;
+        }
+
+        .land-nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .land-nav-links a {
+            font-size: 12px;
+            color: var(--text2);
+            text-decoration: none;
+            padding: 8px 14px;
+            transition: color .2s;
+        }
+
+        .land-nav-links a:hover {
+            color: var(--text);
+        }
+
+        .btn-outline {
+            border: 1px solid var(--border2) !important;
+            border-radius: var(--r) !important;
+        }
+
+        .btn-solid {
+            background: var(--text) !important;
+            color: var(--bg) !important;
+            border-radius: var(--r) !important;
+            font-weight: 600 !important;
+        }
+
+        .btn-solid:hover {
+            background: #ddd !important;
+        }
+
+        .land-hero {
+            flex: 1;
+            min-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-grid {
+            position: absolute;
+            inset: 0;
+            opacity: .04;
+            background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 48px 48px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--border2);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 11px;
+            color: var(--text2);
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            margin-bottom: 32px;
+        }
+
+        .hero-badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--good);
+            border-radius: 50%;
+            animation: pulse 2s ease infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .hero-h1 {
+            font-size: clamp(42px, 7vw, 88px);
+            font-weight: 700;
+            line-height: 1.05;
+            letter-spacing: -2px;
+            margin-bottom: 20px;
+            color: var(--text);
+            font-family: var(--mono);
+        }
+
+        .hero-h1 em {
+            font-style: normal;
+            color: var(--text3);
+        }
+
+        .hero-sub {
+            font-size: 17px;
+            color: var(--text2);
+            max-width: 560px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .cta-btn {
+            padding: 13px 28px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            border-radius: var(--r);
+            transition: all .2s;
+            font-family: var(--sans);
+        }
+
+        .cta-primary {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .cta-primary:hover {
+            background: #d4d4d4;
+            transform: translateY(-1px);
+        }
+
+        .cta-secondary {
+            background: transparent;
+            color: var(--text2);
+            border: 1px solid var(--border2) !important;
+        }
+
+        .cta-secondary:hover {
+            color: var(--text);
+            border-color: var(--border3) !important;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 48px;
+            margin-top: 60px;
+            border-top: 1px solid var(--border);
+            padding-top: 40px;
+        }
+
+        .hero-stat-n {
+            font-family: var(--mono);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .hero-stat-l {
+            font-size: 12px;
+            color: var(--text3);
+            margin-top: 2px;
+        }
+
+        .land-features {
+            padding: 80px 40px;
+            border-top: 1px solid var(--border);
+            background: var(--bg2);
+        }
+
+        .section-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text3);
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 48px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1px;
+            background: var(--border);
+        }
+
+        .feature-card {
+            background: var(--bg2);
+            padding: 32px 28px;
+            transition: background .2s;
+        }
+
+        .feature-card:hover {
+            background: var(--bg3);
+        }
+
+        .feature-icon {
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+
+        .feature-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.6;
+        }
+
+        .land-how {
+            padding: 80px 40px;
+        }
+
+        .how-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        .how-step {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .how-num {
+            font-family: var(--mono);
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--border3);
+            line-height: 1;
+            min-width: 40px;
+        }
+
+        .how-info h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .how-info p {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.6;
+        }
+
+        .land-footer {
+            padding: 24px 40px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text3);
+        }
+
+        .land-footer a {
+            color: var(--text3);
+            text-decoration: none;
+            margin-left: 20px;
+            transition: color .2s;
+        }
+
+        .land-footer a:hover {
+            color: var(--text2);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .8);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-box {
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            border-radius: 6px;
+            padding: 36px;
+            width: 100%;
+            max-width: 420px;
+            position: relative;
+        }
+
+        .modal-box.wide {
+            max-width: 600px;
+        }
+
+        .modal-box.tall {
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            font-size: 20px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: color .2s;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-title {
+            font-family: var(--mono);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-bottom: 6px;
+        }
+
+        .modal-sub {
+            font-size: 13px;
+            color: var(--text2);
+            margin-bottom: 28px;
+        }
+
+        .inp-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 14px;
+        }
+
+        .inp-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text3);
+            font-family: var(--mono);
+        }
+
+        .inp {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 11px 14px;
+            font-size: 13px;
+            font-family: var(--sans);
+            border-radius: var(--r);
+            outline: none;
+            transition: border-color .2s;
+        }
+
+        .inp:focus {
+            border-color: var(--border3);
+        }
+
+        .inp::placeholder {
+            color: var(--text3);
+        }
+
+        .inp-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 13px;
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            border-radius: var(--r);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 8px;
+            transition: background .2s;
+        }
+
+        .auth-btn:hover {
+            background: #d4d4d4;
+        }
+
+        .auth-btn:disabled {
+            background: var(--bg4);
+            color: var(--text3);
+            cursor: not-allowed;
+        }
+
+        .auth-switch {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: var(--text2);
+        }
+
+        .auth-switch a {
+            color: var(--text);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .auth-err {
+            font-size: 12px;
+            color: var(--hot);
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: rgba(239, 68, 68, .08);
+            border-radius: var(--r);
+            display: none;
+        }
+
+        .auth-divider {
+            text-align: center;
+            color: var(--text3);
+            font-size: 11px;
+            margin: 16px 0;
+            position: relative;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 42%;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .auth-divider::before {
+            left: 0;
+        }
+
+        .auth-divider::after {
+            right: 0;
+        }
+
+        .select-inp {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 11px 14px;
+            font-size: 13px;
+            font-family: var(--sans);
+            border-radius: var(--r);
+            outline: none;
+            width: 100%;
+        }
+
+        .select-inp:focus {
+            border-color: var(--border3);
+        }
+
+        #appContainer {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+        }
+
+        #mapContainer {
+            position: absolute;
+            inset: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+        }
+
+        .leaflet-tile-pane {
+            filter: brightness(.55) invert(1) contrast(3) hue-rotate(200deg) saturate(.25) invert(1);
+        }
+
+        .leaflet-container {
+            background: var(--bg);
+            font-family: var(--sans);
+        }
+
+        .leaflet-control-zoom a {
+            background: var(--bg2) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border2) !important;
+            border-radius: 0 !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background: var(--bg4) !important;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: var(--bg2) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border2);
+            border-radius: 4px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .8) !important;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--bg2) !important;
+        }
+
+        .leaflet-popup-close-button {
+            color: var(--text2) !important;
+        }
+
+        #loadingOverlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 5, 5, .85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(6px);
+        }
+
+        .ld-spinner {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--border2);
+            border-top-color: var(--text);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .ld-text {
+            margin-top: 14px;
+            font-size: 10px;
+            color: var(--text3);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-family: var(--mono);
+        }
+
+        .ld-sub {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text3);
+            font-family: var(--mono);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            z-index: 800;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .app-logo {
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 5px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 10px 16px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            cursor: default;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, .5);
+        }
+
+        .app-search {
+            display: flex;
+            align-items: center;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, .5);
+            pointer-events: auto;
+            flex: 1;
+            max-width: 440px;
+        }
+
+        .app-search input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 11px 15px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: var(--sans);
+            outline: none;
+        }
+
+        .app-search input::placeholder {
+            color: var(--text3);
+        }
+
+        .hdr-icon-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-left: 1px solid var(--border);
+            color: var(--text2);
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .hdr-icon-btn:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, .05);
+        }
+
+        .hdr-btn-primary {
+            padding: 0 16px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            font-family: var(--mono);
+            color: var(--bg);
+            background: var(--text);
+            height: 40px;
+            border: none;
+            cursor: pointer;
+            transition: background .2s;
+            white-space: nowrap;
+        }
+
+        .hdr-btn-primary:hover {
+            background: #d4d4d4;
+        }
+
+        .hdr-btn-primary:disabled {
+            background: var(--bg4);
+            color: var(--text3);
+            cursor: not-allowed;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            pointer-events: auto;
+            margin-left: auto;
+        }
+
+        .hdr-action-btn {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text2);
+            cursor: pointer;
+            transition: all .2s;
+            backdrop-filter: blur(10px);
+        }
+
+        .hdr-action-btn:hover {
+            color: var(--text);
+            border-color: var(--border2);
+        }
+
+        .rate-limit-toast {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(245, 158, 11, .15);
+            border: 1px solid rgba(245, 158, 11, .3);
+            color: #f59e0b;
+            padding: 8px 18px;
+            font-size: 11px;
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            backdrop-filter: blur(10px);
+            z-index: 801;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .sidebar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 360px;
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            border-right: 1px solid var(--border);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(-100%);
+            transition: transform .3s cubic-bezier(.1, .9, .2, 1);
+            box-shadow: 20px 0 48px rgba(0, 0, 0, .7);
+        }
+
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sb-head {
+            padding: 16px 16px 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sb-head-title {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text2);
+        }
+
+        .sb-close {
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .sb-close:hover {
+            color: var(--text);
+        }
+
+        .sb-controls {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ctrl-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text3);
+            font-family: var(--mono);
+            margin-bottom: 5px;
+        }
+
+        .sb-input-row {
+            display: flex;
+            align-items: center;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+        }
+
+        .sb-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 10px 12px;
+            color: var(--text);
+            font-size: 12px;
+            font-family: var(--sans);
+            outline: none;
+        }
+
+        .sb-input::placeholder {
+            color: var(--text3);
+        }
+
+        .sb-icon-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-left: 1px solid var(--border);
+            color: var(--text3);
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .sb-icon-btn:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, .04);
+        }
+
+        .sb-go {
+            padding: 0 12px;
+            height: 36px;
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            font-size: 9px;
+            font-weight: 700;
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        .sb-go:hover {
+            background: #d4d4d4;
+        }
+
+        .sb-go:disabled {
+            background: var(--bg4);
+            color: var(--text3);
+            cursor: not-allowed;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            flex: 1;
+            height: 2px;
+            background: var(--border2);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--text);
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .slider-val {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text);
+            min-width: 52px;
+            text-align: right;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .filter-sel {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 10px;
+            font-size: 11px;
+            font-family: var(--sans);
+            outline: none;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 0;
+        }
+
+        .filter-sel:focus {
+            border-color: var(--border2);
+        }
+
+        .filter-full {
+            grid-column: 1 / -1;
+        }
+
+        .sb-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text3);
+            font-family: var(--mono);
+            letter-spacing: .5px;
+        }
+
+        .biz-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 10px 10px;
+        }
+
+        .biz-item {
+            border: 1px solid var(--border);
+            padding: 12px 12px 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all .2s;
+            position: relative;
+            background: var(--bg2);
+        }
+
+        .biz-item:hover {
+            border-color: var(--border2);
+            background: var(--bg3);
+        }
+
+        .biz-item.selected {
+            border-color: var(--border3);
+            background: var(--bg3);
+        }
+
+        .biz-item.contacted {
+            opacity: .45;
+        }
+
+        .biz-item.contacted .biz-name {
+            text-decoration: line-through;
+        }
+
+        .biz-row1 {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 3px;
+        }
+
+        .biz-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            flex: 1;
+            line-height: 1.3;
+        }
+
+        .biz-chk {
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--border2);
+            background: var(--bg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+            transition: all .2s;
+            color: var(--bg);
+        }
+
+        .biz-chk:hover {
+            border-color: var(--text);
+        }
+
+        .biz-chk.on {
+            background: var(--text);
+            border-color: var(--text);
+            color: var(--bg);
+        }
+
+        .biz-addr {
+            font-size: 11px;
+            color: var(--text3);
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .biz-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .biz-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            color: var(--text3);
+            font-family: var(--mono);
+            padding: 2px 6px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+        }
+
+        .biz-badge.has-phone {
+            color: var(--good);
+            border-color: rgba(34, 197, 94, .2);
+            background: rgba(34, 197, 94, .06);
+        }
+
+        .biz-badge.has-email {
+            color: var(--cool);
+            border-color: rgba(59, 130, 246, .2);
+            background: rgba(59, 130, 246, .06);
+        }
+
+        .empty-st {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text3);
+        }
+
+        .empty-st-icon {
+            font-size: 36px;
+            margin-bottom: 14px;
+            opacity: .4;
+        }
+
+        .empty-st p {
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .details-panel {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 480px;
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            border-left: 1px solid var(--border);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform .3s cubic-bezier(.1, .9, .2, 1);
+            box-shadow: -20px 0 48px rgba(0, 0, 0, .7);
+        }
+
+        .details-panel.open {
+            transform: translateX(0);
+        }
+
+        .dp-head {
+            padding: 16px 16px 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .dp-title-wrap {
+            flex: 1;
+        }
+
+        .dp-biz-name {
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        .dp-biz-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .dp-close {
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        .dp-close:hover {
+            color: var(--text);
+        }
+
+        .dp-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg2);
+        }
+
+        .dp-tab {
+            flex: 1;
+            padding: 11px 6px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text3);
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all .2s;
+            font-family: var(--mono);
+            text-align: center;
+        }
+
+        .dp-tab:hover {
+            color: var(--text2);
+        }
+
+        .dp-tab.active {
+            color: var(--text);
+            border-bottom-color: var(--text);
+            background: var(--bg3);
+        }
+
+        .dp-tab-pane {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px;
+        }
+
+        .dp-tab-pane.active {
+            display: block;
+        }
+
+        .sec {
+            margin-bottom: 22px;
+        }
+
+        .sec-title {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text3);
+            font-family: var(--mono);
+            margin-bottom: 10px;
+        }
+
+        .info-block {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            padding: 14px;
+            margin-bottom: 8px;
+        }
+
+        .info-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .info-cell {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            padding: 12px;
+        }
+
+        .info-cell-lbl {
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text3);
+            font-family: var(--mono);
+            margin-bottom: 4px;
+        }
+
+        .info-cell-val {
+            font-size: 12px;
+            color: var(--text);
+            font-family: var(--mono);
+            line-height: 1.4;
+        }
+
+        .info-cell-val.lg {
+            font-size: 22px;
+            font-weight: 700;
+            font-family: var(--sans);
+        }
+
+        .contact-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .contact-row:last-child {
+            border-bottom: none;
+        }
+
+        .contact-icon {
+            width: 30px;
+            height: 30px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text2);
+            flex-shrink: 0;
+        }
+
+        .contact-lbl {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text3);
+            font-family: var(--mono);
+            margin-bottom: 2px;
+        }
+
+        .contact-val {
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .contact-val a {
+            color: var(--text);
+            text-decoration: none;
+            border-bottom: 1px solid var(--border2);
+            transition: border-color .2s;
+        }
+
+        .contact-val a:hover {
+            border-color: var(--text);
+        }
+
+        .ext-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .ext-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            font-size: 10px;
+            font-family: var(--mono);
+            text-decoration: none;
+            transition: all .2s;
+            letter-spacing: .5px;
+        }
+
+        .ext-link:hover {
+            color: var(--text);
+            border-color: var(--border2);
+            background: var(--bg4);
+        }
+
+        .opportunity-bar {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .opportunity-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width .5s ease;
+        }
+
+        .val-hero {
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+
+        .val-price {
+            font-family: var(--mono);
+            font-size: 38px;
+            font-weight: 700;
+            margin: 4px 0;
+        }
+
+        .val-range {
+            font-size: 12px;
+            color: var(--text2);
+            font-family: var(--mono);
+        }
+
+        .factor-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .factor-row:last-child {
+            border-bottom: none;
+        }
+
+        .factor-impact {
+            font-family: var(--mono);
+            font-weight: 700;
+            color: var(--good);
+        }
+
+        .pitch-block {
+            margin-bottom: 18px;
+        }
+
+        .pitch-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .pitch-head-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text);
+            font-family: var(--mono);
+        }
+
+        .copy-btn {
+            padding: 4px 10px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text3);
+            font-size: 9px;
+            font-family: var(--mono);
+            letter-spacing: .5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all .2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+        }
+
+        .pitch-content {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            padding: 14px;
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--text2);
+        }
+
+        .pitch-content p {
+            margin-bottom: 6px;
+        }
+
+        .pitch-content li {
+            margin-left: 16px;
+            margin-bottom: 3px;
+        }
+
+        .email-toolbar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+
+        .tmpl-btn {
+            padding: 6px 12px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text3);
+            font-size: 9px;
+            font-family: var(--mono);
+            letter-spacing: .5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all .2s;
+            border-radius: 2px;
+        }
+
+        .tmpl-btn:hover {
+            color: var(--text);
+            border-color: var(--border2);
+        }
+
+        .tmpl-btn.active {
+            background: var(--bg4);
+            color: var(--text);
+            border-color: var(--border3);
+        }
+
+        .email-inp {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px;
+            font-size: 12px;
+            font-family: var(--sans);
+            outline: none;
+            width: 100%;
+            border-radius: 0;
+            transition: border-color .2s;
+        }
+
+        .email-inp:focus {
+            border-color: var(--border3);
+        }
+
+        .email-inp::placeholder {
+            color: var(--text3);
+        }
+
+        .email-textarea {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px;
+            font-size: 12px;
+            font-family: var(--sans);
+            outline: none;
+            width: 100%;
+            border-radius: 0;
+            min-height: 200px;
+            resize: vertical;
+            line-height: 1.6;
+            transition: border-color .2s;
+        }
+
+        .email-textarea:focus {
+            border-color: var(--border3);
+        }
+
+        .email-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .em-btn {
+            flex: 1;
+            padding: 11px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all .2s;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+        }
+
+        .em-btn.primary {
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+        }
+
+        .em-btn.primary:hover {
+            background: #d4d4d4;
+        }
+
+        .em-btn.secondary {
+            background: var(--bg3);
+            color: var(--text2);
+        }
+
+        .em-btn.secondary:hover {
+            color: var(--text);
+            border-color: var(--border2);
+        }
+
+        .em-btn.ai {
+            background: rgba(139, 92, 246, .1);
+            color: #a78bfa;
+            border-color: rgba(139, 92, 246, .3);
+        }
+
+        .em-btn.ai:hover {
+            background: rgba(139, 92, 246, .2);
+        }
+
+        .em-btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        .char-count {
+            font-size: 9px;
+            color: var(--text3);
+            font-family: var(--mono);
+            text-align: right;
+            margin-top: 3px;
+        }
+
+        .ai-note {
+            font-size: 10px;
+            color: var(--text3);
+            padding: 8px 12px;
+            background: rgba(139, 92, 246, .05);
+            border: 1px solid rgba(139, 92, 246, .1);
+            border-radius: var(--r);
+            margin-top: 8px;
+        }
+
+        .ai-note a {
+            color: #a78bfa;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .settings-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text3);
+            font-family: var(--mono);
+            margin-bottom: 12px;
+            margin-top: 20px;
+        }
+
+        .settings-section-title:first-child {
+            margin-top: 0;
+        }
+
+        .key-inp-wrap {
+            position: relative;
+        }
+
+        .key-inp-wrap input {
+            padding-right: 70px;
+        }
+
+        .key-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text3);
+            font-size: 10px;
+            cursor: pointer;
+            font-family: var(--mono);
+            letter-spacing: .5px;
+        }
+
+        .key-toggle:hover {
+            color: var(--text2);
+        }
+
+        .settings-save {
+            width: 100%;
+            padding: 12px;
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            border-radius: var(--r);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 18px;
+            transition: background .2s;
+        }
+
+        .settings-save:hover {
+            background: #d4d4d4;
+        }
+
+        .legal-content {
+            font-size: 12px;
+            color: var(--text2);
+            line-height: 1.8;
+        }
+
+        .legal-content h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin: 18px 0 6px;
+            font-family: var(--mono);
+        }
+
+        .legal-content p {
+            margin-bottom: 8px;
+        }
+
+        .user-menu {
+            position: absolute;
+            top: 60px;
+            right: 14px;
+            z-index: 1000;
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            min-width: 200px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .6);
+            backdrop-filter: blur(10px);
+        }
+
+        .user-menu-head {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .user-menu-name {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .user-menu-company {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 2px;
+        }
+
+        .user-menu-item {
+            width: 100%;
+            padding: 11px 16px;
+            background: none;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            color: var(--text2);
+            font-size: 12px;
+            font-family: var(--sans);
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all .2s;
+        }
+
+        .user-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-menu-item:hover {
+            background: var(--bg3);
+            color: var(--text);
+        }
+
+        .user-menu-item.danger {
+            color: var(--hot);
+        }
+
+        .user-menu-item.danger:hover {
+            background: rgba(239, 68, 68, .08);
+        }
+
+        .wp-label {
+            background: var(--bg);
+            border: 1px solid var(--text);
+            color: var(--text);
+            padding: 2px 6px;
+            font-size: 9px;
+            font-family: var(--mono);
+            white-space: nowrap;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            color: var(--text);
+            padding: 10px 20px;
+            font-size: 12px;
+            font-family: var(--mono);
+            z-index: 99999;
+            letter-spacing: .5px;
+            animation: slideUp .3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, 10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .app-search {
+                max-width: 300px;
+            }
+
+            .sidebar {
+                width: 320px;
+            }
+
+            .details-panel {
+                width: 420px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-search {
+                display: none;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-width: 340px;
+            }
+
+            .details-panel {
+                width: 100%;
+            }
+
+            .land-nav {
+                padding: 14px 20px;
+            }
+
+            .land-hero {
+                padding: 40px 20px;
+            }
+
+            .hero-stats {
+                gap: 24px;
+            }
+
+            .land-features,
+            .land-how {
+                padding: 50px 20px;
+            }
+
+            .land-footer {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+
+            .land-footer a {
+                margin-left: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="preloader">
+        <div class="pl-logo">BUZZ</div>
+        <div style="margin-top:18px;display:flex;gap:6px;align-items:center"><span class="pl-dot"></span><span
+                class="pl-dot"></span><span class="pl-dot"></span></div>
+        <div class="pl-msg" id="plMsg">Initializing...</div>
+    </div>
+    <div id="landingPage" class="hidden">
+        <nav class="land-nav">
+            <div class="land-logo">BUZZ <span>beta</span></div>
+            <div class="land-nav-links"><a href="#features">Features</a><a href="#how">How It Works</a><a href="#"
+                    onclick="openTOS();return false;" style="color:var(--text3)">Terms</a><a href="#"
+                    onclick="showAuth('login');return false;" class="btn-outline"
+                    style="padding:7px 16px;font-size:12px;border:1px solid var(--border2);border-radius:3px;color:var(--text2)">Log
+                    In</a><a href="#" onclick="showAuth('signup');return false;" class="btn-solid"
+                    style="padding:7px 16px;font-size:12px;background:var(--text);color:var(--bg);border-radius:3px">Sign
+                    Up Free</a></div>
+        </nav>
+        <section class="land-hero" id="hero">
+            <div class="hero-grid"></div>
+            <div class="hero-badge"><span class="hero-badge-dot"></span> Free to Use — No Credit Card Required </div>
+            <h1 class="hero-h1">Find businesses<br><em>that need you</em></h1>
+            <p class="hero-sub">Buzz scans any area and surfaces local businesses with zero web presence — complete with
+                contact info, AI-powered outreach, and pricing tools.</p>
+            <div class="hero-ctas"><button class="cta-btn cta-primary" onclick="showAuth('signup')">Start Discovering
+                    Free →</button><button class="cta-btn cta-secondary"
+                    onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">See How It
+                    Works</button></div>
+            <div class="hero-stats">
+                <div>
+                    <div class="hero-stat-n">~46M</div>
+                    <div class="hero-stat-l">SMBs without websites</div>
+                </div>
+                <div>
+                    <div class="hero-stat-n">$1.2K</div>
+                    <div class="hero-stat-l">avg. project value</div>
+                </div>
+                <div>
+                    <div class="hero-stat-n">2 min</div>
+                    <div class="hero-stat-l">to first lead</div>
+                </div>
+            </div>
+        </section>
+        <section class="land-features" id="features">
+            <div class="section-label">Platform Features</div>
+            <div class="section-title">Everything you need to<br>turn gaps into clients</div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🗺️</div>
+                    <div class="feature-title">Smart Map Discovery</div>
+                    <div class="feature-desc">Search any city or address. Buzz queries live OpenStreetMap data and plots
+                        every business without a website on an interactive dark map.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <div class="feature-title">Full Contact Intelligence</div>
+                    <div class="feature-desc">Surface phone numbers, email addresses, formatted addresses, opening
+                        hours, and business categories — all in one panel.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <div class="feature-title">Auto Valuation Engine</div>
+                    <div class="feature-desc">Instant pricing estimates based on business type, complexity, and market
+                        rates. Walk into every conversation with a number.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✉️</div>
+                    <div class="feature-title">AI-Powered Outreach</div>
+                    <div class="feature-desc">5 personalized email styles that adapt to every business type. Optionally
+                        supercharge them with Claude AI for a truly unique pitch every time.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <div class="feature-title">Opportunity Scoring</div>
+                    <div class="feature-desc">Every lead is scored by how much data is available and how likely they are
+                        to respond — so you focus your time on the hottest prospects.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <div class="feature-title">Pipeline Tracking</div>
+                    <div class="feature-desc">Check off contacted businesses, filter your view, and export your list.
+                        Your prospecting pipeline in a single file.</div>
+                </div>
+            </div>
+        </section>
+        <section class="land-how" id="how">
+            <div class="section-label">How It Works</div>
+            <div class="section-title">From search to pitch<br>in under five minutes</div>
+            <div class="how-steps">
+                <div class="how-step">
+                    <div class="how-num">01</div>
+                    <div class="how-info">
+                        <h3>Enter any location</h3>
+                        <p>Type a city, neighborhood, or postal code. Buzz geocodes it and queries live business data
+                            within your chosen radius.</p>
+                    </div>
+                </div>
+                <div class="how-step">
+                    <div class="how-num">02</div>
+                    <div class="how-info">
+                        <h3>Browse opportunities</h3>
+                        <p>Every business without a website appears in the sidebar. Click any listing to see full
+                            contact info, hours, valuation, and outreach scripts.</p>
+                    </div>
+                </div>
+                <div class="how-step">
+                    <div class="how-num">03</div>
+                    <div class="how-info">
+                        <h3>Reach out instantly</h3>
+                        <p>Select a personalized email template, optionally enhance it with AI, and hit send — directly
+                            from within the app.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <footer class="land-footer">
+            <div>© 2025 Buzz. Built for freelancers & web agencies.</div>
+            <div><a href="#" onclick="openTOS();return false;">Terms of Service</a><a href="#"
+                    onclick="openPrivacy();return false;">Privacy Policy</a><a href="#"
+                    onclick="showAuth('login');return false;">Log In</a></div>
+        </footer>
+    </div>
+    <div class="modal-overlay hidden" id="authModal">
+        <div class="modal-box" id="loginBox">
+            <div class="modal-title">BUZZ</div>
+            <div class="modal-sub">Sign in to your account</div>
+            <div class="auth-err" id="loginErr"></div>
+            <div class="inp-group">
+                <div class="inp-label">Email</div><input class="inp" type="email" id="loginEmail"
+                    placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="inp-group">
+                <div class="inp-label">Password</div><input class="inp" type="password" id="loginPass"
+                    placeholder="••••••••" autocomplete="current-password">
+            </div><button class="auth-btn" onclick="doLogin()">SIGN IN</button>
+            <div class="auth-switch">Don't have an account? <a onclick="toggleAuth()">Sign up free</a></div>
+            <div style="margin-top:16px;text-align:center"><a href="#" onclick="closeLanding();return false;"
+                    style="font-size:11px;color:var(--text3)">← Back to home</a></div>
+        </div>
+        <div class="modal-box hidden" id="signupBox">
+            <div class="modal-title">SIGN UP</div>
+            <div class="modal-sub">Create your free Buzz account</div>
+            <div class="auth-err" id="signupErr"></div>
+            <div class="inp-row">
+                <div class="inp-group">
+                    <div class="inp-label">First Name</div><input class="inp" type="text" id="signupFirst"
+                        placeholder="Alex" autocomplete="given-name">
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Last Name</div><input class="inp" type="text" id="signupLast"
+                        placeholder="Morgan" autocomplete="family-name">
+                </div>
+            </div>
+            <div class="inp-group">
+                <div class="inp-label">Company / Freelancer Name</div><input class="inp" type="text" id="signupCompany"
+                    placeholder="Your Agency or Your Name">
+            </div>
+            <div class="inp-group">
+                <div class="inp-label">Your Specialty</div><select class="inp select-inp" id="signupSpecialty">
+                    <option value="web design">Web Design</option>
+                    <option value="full stack development">Full Stack Development</option>
+                    <option value="front-end development">Front-End Development</option>
+                    <option value="digital marketing">Digital Marketing & SEO</option>
+                    <option value="e-commerce">E-Commerce Solutions</option>
+                    <option value="mobile apps">Mobile App Development</option>
+                    <option value="general web services">General Web Services</option>
+                </select>
+            </div>
+            <div class="inp-group">
+                <div class="inp-label">Email</div><input class="inp" type="email" id="signupEmail"
+                    placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="inp-group">
+                <div class="inp-label">Password (min 6 chars)</div><input class="inp" type="password" id="signupPass"
+                    placeholder="••••••••" autocomplete="new-password">
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5"> By signing up you agree
+                to our <a href="#" onclick="openTOS();return false;" style="color:var(--text2)">Terms of Service</a> and
+                <a href="#" onclick="openPrivacy();return false;" style="color:var(--text2)">Privacy Policy</a>. </div>
+            <button class="auth-btn" onclick="doSignup()">CREATE ACCOUNT</button>
+            <div class="auth-switch">Already have an account? <a onclick="toggleAuth()">Sign in</a></div>
+        </div>
+    </div>
+    <div id="appContainer" class="hidden">
+        <div id="mapContainer">
+            <div id="map"></div>
+            <div id="loadingOverlay" class="hidden">
+                <div class="ld-spinner"></div>
+                <div class="ld-text" id="ldText">Scanning…</div>
+                <div class="ld-sub" id="ldSub"></div>
+            </div>
+            <div id="rateLimitToast" class="rate-limit-toast hidden"></div>
+        </div>
+        <header class="app-header" id="appHeader">
+            <div class="app-logo">BUZZ</div>
+            <div class="app-search"><input type="text" id="searchInput" placeholder="City, address, postal code…"
+                    autocomplete="off"><button class="hdr-icon-btn" id="geoBtn" title="Use my location"><svg
+                        viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                        <circle cx="12" cy="12" r="7" />
+                    </svg></button><button class="hdr-btn-primary" id="searchBtn">SEARCH</button></div>
+            <div class="header-actions"><button class="hdr-action-btn" id="menuBtn" title="Leads & Filters"><svg
+                        viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                    </svg></button><button class="hdr-action-btn" id="userBtn" title="Account"><svg viewBox="0 0 24 24"
+                        width="17" height="17" stroke="currentColor" stroke-width="2" fill="none">
+                        <circle cx="12" cy="8" r="4" />
+                        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg></button></div>
+        </header>
+        <div class="user-menu hidden" id="userMenu">
+            <div class="user-menu-head">
+                <div class="user-menu-name" id="umName">—</div>
+                <div class="user-menu-company" id="umCompany">—</div>
+            </div><button class="user-menu-item" onclick="openSettings()"><svg viewBox="0 0 24 24" width="14"
+                    height="14" stroke="currentColor" stroke-width="2" fill="none">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg> Settings & Profile </button><button class="user-menu-item" onclick="openTOS()"><svg
+                    viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                </svg> Terms of Service </button><button class="user-menu-item" onclick="openPrivacy()"><svg
+                    viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg> Privacy Policy </button><button class="user-menu-item danger" onclick="doLogout()"><svg
+                    viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+                </svg> Log Out </button>
+        </div>
+        <aside class="sidebar" id="sidebar">
+            <div class="sb-head">
+                <div class="sb-head-title">Lead Discovery</div><button class="sb-close" id="sbClose"><svg
+                        viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg></button>
+            </div>
+            <div class="sb-controls">
+                <div>
+                    <div class="ctrl-label">Target Location</div>
+                    <div class="sb-input-row"><input type="text" class="sb-input" id="sbSearchInput"
+                            placeholder="City, address, postal code…"><button class="sb-icon-btn" id="sbGeoBtn"><svg
+                                viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <circle cx="12" cy="12" r="3" />
+                                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                                <circle cx="12" cy="12" r="7" />
+                            </svg></button><button class="sb-go" id="sbSearchBtn">GO</button></div>
+                </div>
+                <div>
+                    <div class="ctrl-label">Search Radius</div>
+                    <div class="slider-row"><input type="range" class="slider" id="radiusSlider" min="500" max="12000"
+                            step="500" value="3000"><span class="slider-val" id="radiusVal">3.0 km</span></div>
+                </div>
+                <div>
+                    <div class="ctrl-label">Filters</div>
+                    <div class="filter-grid"><select class="filter-sel" id="scoreFilter">
+                            <option value="0">All Scores</option>
+                            <option value="50">Score 50+</option>
+                            <option value="65">Score 65+</option>
+                            <option value="75">Score 75+ (Hot)</option>
+                            <option value="90">Score 90+</option>
+                        </select><select class="filter-sel" id="typeFilter">
+                            <option value="all">All Categories</option>
+                        </select><select class="filter-sel filter-full" id="statusFilter">
+                            <option value="all">All Leads</option>
+                            <option value="active">Uncontacted Only</option>
+                            <option value="contacted">Contacted Only</option>
+                        </select></div>
+                </div>
+                <div class="sb-stats"><span id="resultCount">0 Leads</span><span id="apiStatus"
+                        style="color:var(--text3)">Ready</span></div>
+            </div>
+            <div class="biz-list" id="bizList">
+                <div class="empty-st">
+                    <div class="empty-st-icon">📍</div>
+                    <p>No search yet.<br>Enter a location above to find<br>businesses without websites.</p>
+                </div>
+            </div>
+        </aside>
+        <aside class="details-panel" id="detailsPanel">
+            <div class="dp-head">
+                <div class="dp-title-wrap">
+                    <div class="dp-biz-name" id="dpBizName">Business Name</div>
+                    <div class="dp-biz-meta" id="dpBizMeta"></div>
+                </div><button class="dp-close" id="dpClose"><svg viewBox="0 0 24 24" width="18" height="18"
+                        stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg></button>
+            </div>
+            <div class="dp-tabs"><button class="dp-tab active" data-tab="infoPane">Intel</button><button class="dp-tab"
+                    data-tab="valuationPane">Value</button><button class="dp-tab"
+                    data-tab="pitchPane">Script</button><button class="dp-tab" data-tab="emailPane">Email</button></div>
+            <div class="dp-tab-pane active" id="infoPane"></div>
+            <div class="dp-tab-pane" id="valuationPane"></div>
+            <div class="dp-tab-pane" id="pitchPane"></div>
+            <div class="dp-tab-pane" id="emailPane"></div>
+        </aside>
+    </div>
+    <div class="modal-overlay hidden" id="settingsModal">
+        <div class="modal-box wide"><button class="modal-close" onclick="closeSettings()">✕</button>
+            <div class="modal-title">SETTINGS</div>
+            <div class="modal-sub">Personalize Buzz and configure AI email generation</div>
+            <div class="settings-section-title">Your Profile</div>
+            <div class="settings-grid">
+                <div class="inp-group">
+                    <div class="inp-label">First Name</div><input class="inp" type="text" id="stFirst"
+                        placeholder="Alex">
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Last Name</div><input class="inp" type="text" id="stLast"
+                        placeholder="Morgan">
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Company Name</div><input class="inp" type="text" id="stCompany"
+                        placeholder="Your Agency">
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Your Email</div><input class="inp" type="email" id="stEmail"
+                        placeholder="you@example.com">
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Your Phone</div><input class="inp" type="tel" id="stPhone"
+                        placeholder="+1 (555) 000-0000">
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Specialty</div><select class="inp select-inp" id="stSpecialty">
+                        <option value="web design">Web Design</option>
+                        <option value="full stack development">Full Stack Development</option>
+                        <option value="front-end development">Front-End Development</option>
+                        <option value="digital marketing">Digital Marketing & SEO</option>
+                        <option value="e-commerce">E-Commerce Solutions</option>
+                        <option value="mobile apps">Mobile App Development</option>
+                        <option value="general web services">General Web Services</option>
+                    </select>
+                </div>
+            </div>
+            <div class="inp-group" style="margin-top:10px">
+                <div class="inp-label">Your City / Area (used in outreach)</div><input class="inp" type="text"
+                    id="stCity" placeholder="e.g. Austin, TX">
+            </div>
+            <div class="settings-section-title">AI Email Generation (Optional)</div>
+            <div class="inp-group">
+                <div class="inp-label">Claude API Key</div>
+                <div class="key-inp-wrap"><input class="inp" type="password" id="stApiKey" placeholder="sk-ant-api03-…"
+                        autocomplete="off"><button class="key-toggle" onclick="toggleKeyVis()">SHOW</button></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:-6px;margin-bottom:8px"> Your API
+                key is stored locally in your browser only and never transmitted to our servers. Get a key at <a
+                    href="https://console.anthropic.com" target="_blank"
+                    style="color:var(--text2)">console.anthropic.com</a>. </div>
+            <div class="settings-section-title">Preferences</div>
+            <div class="settings-grid">
+                <div class="inp-group">
+                    <div class="inp-label">Default Email Tone</div><select class="inp select-inp" id="stTone">
+                        <option value="friendly">Friendly & Casual</option>
+                        <option value="professional">Professional & Direct</option>
+                        <option value="pain_point">Pain-Point Focused</option>
+                        <option value="social_proof">Social Proof</option>
+                        <option value="quick_value">Quick Value / Short</option>
+                    </select>
+                </div>
+                <div class="inp-group">
+                    <div class="inp-label">Default Radius (km)</div><select class="inp select-inp" id="stRadius">
+                        <option value="1000">1 km</option>
+                        <option value="2000">2 km</option>
+                        <option value="3000" selected>3 km</option>
+                        <option value="5000">5 km</option>
+                        <option value="10000">10 km</option>
+                    </select>
+                </div>
+            </div><button class="settings-save" onclick="saveSettings()">SAVE CHANGES</button>
+        </div>
+    </div>
+    <div class="modal-overlay hidden" id="tosModal">
+        <div class="modal-box wide tall"><button class="modal-close" onclick="closeModal('tosModal')">✕</button>
+            <div class="modal-title">TERMS OF SERVICE</div>
+            <div class="modal-sub">Last updated: January 1, 2025</div>
+            <div class="legal-content">
+                <h3>1. Acceptance of Terms</h3>
+                <p>By accessing or using Buzz ("the Service"), you agree to be bound by these Terms of Service. If you
+                    do not agree, do not use the Service.</p>
+                <h3>2. Description of Service</h3>
+                <p>Buzz is a client prospecting tool that helps web developers, designers, and digital agencies identify
+                    local businesses that may benefit from web services. The Service aggregates publicly available data
+                    from OpenStreetMap and related open-data sources.</p>
+                <h3>3. Permitted Use</h3>
+                <p>You may use Buzz solely for legitimate business prospecting purposes. You must comply with all
+                    applicable laws, including but not limited to CAN-SPAM, GDPR, CASL, and any other anti-spam or data
+                    protection regulations applicable in your jurisdiction.</p>
+                <p>You agree not to: (a) send unsolicited bulk communications ("spam"); (b) misrepresent your identity
+                    or affiliation when contacting businesses; (c) use the Service to harass, intimidate, or deceive any
+                    person or entity; (d) scrape, reverse-engineer, or systematically extract data from the Service
+                    beyond normal usage.</p>
+                <h3>4. Outreach Responsibility</h3>
+                <p>You are solely responsible for all communications you send using data obtained through Buzz. Always
+                    provide a clear opt-out mechanism in commercial emails. Respect "do not contact" requests
+                    immediately and permanently.</p>
+                <h3>5. Data Accuracy</h3>
+                <p>Business data is sourced from OpenStreetMap, a community-contributed dataset. Buzz makes no
+                    warranties about the accuracy, completeness, or currency of this data. Always verify contact
+                    information before outreach.</p>
+                <h3>6. AI-Generated Content</h3>
+                <p>AI-generated email templates are suggestions only. You are responsible for reviewing, editing, and
+                    ensuring all content you send is truthful, non-deceptive, and compliant with applicable laws. Do not
+                    send AI-generated messages without human review.</p>
+                <h3>7. Intellectual Property</h3>
+                <p>The Buzz application, its design, and original code are proprietary. OpenStreetMap data is licensed
+                    under the Open Database License (ODbL). You must attribute OpenStreetMap contributors when required
+                    by the ODbL.</p>
+                <h3>8. Disclaimer of Warranties</h3>
+                <p>The Service is provided "as is" without warranty of any kind. We do not guarantee uptime, data
+                    availability, or results from using the Service.</p>
+                <h3>9. Limitation of Liability</h3>
+                <p>To the maximum extent permitted by law, Buzz and its creators shall not be liable for any indirect,
+                    incidental, special, or consequential damages arising from your use of the Service.</p>
+                <h3>10. Governing Law</h3>
+                <p>These Terms are governed by and construed in accordance with applicable law. Any disputes shall be
+                    resolved through binding arbitration.</p>
+                <h3>11. Changes to Terms</h3>
+                <p>We reserve the right to update these Terms at any time. Continued use of the Service after changes
+                    constitutes acceptance of the updated Terms.</p>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay hidden" id="privacyModal">
+        <div class="modal-box wide tall"><button class="modal-close" onclick="closeModal('privacyModal')">✕</button>
+            <div class="modal-title">PRIVACY POLICY</div>
+            <div class="modal-sub">Last updated: January 1, 2025</div>
+            <div class="legal-content">
+                <h3>1. Overview</h3>
+                <p>Buzz ("we", "the app") is a client-side application. The vast majority of your data never leaves your
+                    device. This policy explains what data we handle and how.</p>
+                <h3>2. Data We Store Locally (Your Browser)</h3>
+                <p><strong>Account credentials:</strong> Your email and encoded password are stored in your browser's
+                    localStorage. Your password is never transmitted to any server.</p>
+                <p><strong>User profile:</strong> Your name, company, specialty, and preferences are stored locally.
+                    This information is used only to personalize email templates within the app.</p>
+                <p><strong>API keys:</strong> Any Claude API key you enter is stored in localStorage on your device
+                    only. It is used exclusively to make direct API calls from your browser to Anthropic's servers. Buzz
+                    does not receive or log your API key.</p>
+                <p><strong>Lead data:</strong> Business lists, contacted/unchecked statuses, and notes are stored
+                    locally in your browser.</p>
+                <h3>3. Data Transmitted to Third Parties</h3>
+                <p><strong>OpenStreetMap / Overpass API:</strong> When you search, your location query and approximate
+                    search area are sent to the Overpass API to retrieve business data. This is necessary for the core
+                    functionality of the app. OpenStreetMap's privacy policy applies.</p>
+                <p><strong>Nominatim / Photon:</strong> Location queries are sent to geocoding services to resolve place
+                    names to coordinates.</p>
+                <p><strong>Anthropic API:</strong> If you use AI email generation, business context (name, type,
+                    location) is sent directly from your browser to Anthropic's API. Your API key authenticates this
+                    request. Anthropic's privacy policy applies to this data.</p>
+                <p><strong>No other data sharing:</strong> We do not sell, share, or transmit your personal information
+                    to any other third party.</p>
+                <h3>4. Cookies & Tracking</h3>
+                <p>Buzz does not use cookies. Buzz does not contain any analytics, tracking pixels, or advertising
+                    scripts.</p>
+                <h3>5. Data Retention</h3>
+                <p>Your data persists in your browser's localStorage until you clear it or use the "Delete My Data"
+                    option in Settings. Logging out does not delete your stored data — it only ends your session.</p>
+                <h3>6. Your Rights</h3>
+                <p>You can delete all locally stored data at any time from Settings → "Delete All My Data". You can also
+                    clear your browser's localStorage directly. You have the right to access and delete any data stored
+                    about you.</p>
+                <h3>7. Children's Privacy</h3>
+                <p>Buzz is not intended for use by anyone under the age of 13. We do not knowingly collect data from
+                    children.</p>
+                <h3>8. Changes to This Policy</h3>
+                <p>We may update this Privacy Policy from time to time. Significant changes will be noted in the app.
+                </p>
+                <h3>9. Contact</h3>
+                <p>Questions about this Privacy Policy? Use the feedback option within the app.</p>
+            </div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const CFG = { OVERPASS_MIRRORS: ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"], CORS_PROXIES: ["https://corsproxy.io/?", "https://api.allorigins.win/raw?url="], RATE_LIMIT_MIN_GAP: 4e3, RATE_LIMIT_MAX_PER_HOUR: 30, DEFAULT_RADIUS: 3e3, HIGH_VALUE_AMENITIES: ["restaurant", "cafe", "bar", "fast_food", "clinic", "dentist", "doctor", "pharmacy", "bank", "hotel", "hospital"], HIGH_VALUE_SHOPS: ["bakery", "butcher", "hairdresser", "beauty", "florist", "jewellery", "optician", "car_repair"], HIGH_VALUE_OFFICES: ["lawyer", "accountant", "insurance", "estate_agent", "it", "financial", "consultant"] }, RateLimiter = { calls: [], lastCall: 0, canCall() { const now = Date.now(); if (this.calls = this.calls.filter(t => now - t < 36e5), now - this.lastCall < CFG.RATE_LIMIT_MIN_GAP) { return { ok: !1, wait: Math.ceil((CFG.RATE_LIMIT_MIN_GAP - (now - this.lastCall)) / 1e3) } } return this.calls.length >= CFG.RATE_LIMIT_MAX_PER_HOUR ? { ok: !1, wait: 60 } : { ok: !0 } }, record() { const now = Date.now(); this.calls.push(now), this.lastCall = now } }, Auth = { _key: "buzz_users", _sessKey: "buzz_session", encode: str => btoa(unescape(encodeURIComponent(str))), getUsers() { try { return JSON.parse(localStorage.getItem(this._key) || "[]") } catch { return [] } }, saveUsers(users) { localStorage.setItem(this._key, JSON.stringify(users)) }, register(first, last, company, specialty, email, password) { const users = this.getUsers(); if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) return { ok: !1, error: "An account with this email already exists." }; if (password.length < 6) return { ok: !1, error: "Password must be at least 6 characters." }; const user = { id: Date.now().toString(), first: first, last: last, company: company, specialty: specialty, email: email.toLowerCase(), password: this.encode(password), createdAt: (new Date).toISOString(), settings: { phone: "", city: "", apiKey: "", tone: "friendly", radius: 3e3 } }; return users.push(user), this.saveUsers(users), this.setSession(user), { ok: !0, user: user } }, login(email, password) { const user = this.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase()); return user ? user.password !== this.encode(password) ? { ok: !1, error: "Incorrect password." } : (this.setSession(user), { ok: !0, user: user }) : { ok: !1, error: "No account found with that email." } }, setSession(user) { sessionStorage.setItem(this._sessKey, JSON.stringify({ id: user.id, email: user.email })) }, getSession() { try { return JSON.parse(sessionStorage.getItem(this._sessKey)) } catch { return null } }, getCurrentUser() { const sess = this.getSession(); return sess && this.getUsers().find(u => u.id === sess.id) || null }, updateUser(updatedUser) { const users = this.getUsers(), idx = users.findIndex(u => u.id === updatedUser.id); idx >= 0 && (users[idx] = updatedUser, this.saveUsers(users)) }, logout() { sessionStorage.removeItem(this._sessKey) }, deleteCurrentUser() { const user = this.getCurrentUser(); if (!user) return; const users = this.getUsers().filter(u => u.id !== user.id); this.saveUsers(users), this.logout() } }, S = { map: null, radiusCircle: null, markers: [], waypoints: [], userLocation: null, businesses: [], filtered: [], selected: null, searchRadius: CFG.DEFAULT_RADIUS, scoreFilter: 0, typeFilter: "all", statusFilter: "all", contacted: new Set(JSON.parse(localStorage.getItem("buzz_contacted") || "[]")), activeEmailTemplate: "friendly", user: null }; function saveContacted() { localStorage.setItem("buzz_contacted", JSON.stringify([...S.contacted])) } function haversine(lat1, lng1, lat2, lng2) { const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180, Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lng2 - lng1) * Math.PI / 180, a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2; return 12742e3 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) } function fmtDist(m) { return m < 1e3 ? Math.round(m) + "m" : (m / 1e3).toFixed(1) + "km" } function fmtAddress(tags) { const parts = []; return tags["addr:housenumber"] && tags["addr:street"] ? parts.push(`${tags["addr:housenumber"]} ${tags["addr:street"]}`) : tags["addr:street"] && parts.push(tags["addr:street"]), tags["addr:city"] && parts.push(tags["addr:city"]), tags["addr:state"] && parts.push(tags["addr:state"]), tags["addr:postcode"] && parts.push(tags["addr:postcode"]), tags["addr:country"] && parts.push(tags["addr:country"]), parts } function fmtHours(raw) { return raw ? raw.replace(/;/g, " · ").replace(/,/g, ", ") : null } function scoreOpportunity(tags) { let s = 30; (tags.phone || tags["contact:phone"] || tags["contact:mobile"]) && (s += 20), (tags.email || tags["contact:email"]) && (s += 20), tags["addr:street"] && (s += 10), tags["addr:city"] && (s += 5), tags.description && (s += 5), tags.opening_hours && (s += 5), (tags.cuisine || tags.sport) && (s += 3); const am = tags.amenity, sh = tags.shop, of = tags.office; return (CFG.HIGH_VALUE_AMENITIES.includes(am) || CFG.HIGH_VALUE_SHOPS.includes(sh) || CFG.HIGH_VALUE_OFFICES.includes(of)) && (s += 12), Math.min(s, 100) } function scoreLabel(s) { return s >= 75 ? "hot" : s >= 50 ? "warm" : "cool" } function esc(str) { return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") } function showToast(msg, duration = 2500) { const old = document.getElementById("toast"); old && old.remove(); const el = document.createElement("div"); el.id = "toast", el.className = "toast", el.textContent = msg, document.body.appendChild(el), setTimeout(() => el.remove(), duration) } function copyToClipboard(text, msg = "Copied!") { navigator.clipboard.writeText(text).then(() => showToast(msg)) } function showLanding() { document.getElementById("landingPage").classList.remove("hidden"), document.getElementById("authModal").classList.add("hidden"), document.getElementById("appContainer").classList.add("hidden") } function showApp(user) { S.user = user, document.getElementById("landingPage").classList.add("hidden"), document.getElementById("authModal").classList.add("hidden"), document.getElementById("appContainer").classList.remove("hidden"), document.getElementById("umName").textContent = `${user.first} ${user.last}`, document.getElementById("umCompany").textContent = user.company || ""; const rad = user.settings?.radius || CFG.DEFAULT_RADIUS; S.searchRadius = rad, document.getElementById("radiusSlider").value = rad, document.getElementById("radiusVal").textContent = (rad / 1e3).toFixed(1) + " km", S.map || initMap() } function showAuth(mode) { document.getElementById("authModal").classList.remove("hidden"), "login" === mode ? (document.getElementById("loginBox").classList.remove("hidden"), document.getElementById("signupBox").classList.add("hidden")) : (document.getElementById("loginBox").classList.add("hidden"), document.getElementById("signupBox").classList.remove("hidden")) } function closeLanding() { document.getElementById("authModal").classList.add("hidden") } function toggleAuth() { document.getElementById("loginBox").classList.toggle("hidden"), document.getElementById("signupBox").classList.toggle("hidden"), document.getElementById("loginErr").style.display = "none", document.getElementById("signupErr").style.display = "none" } function doLogin() { const email = document.getElementById("loginEmail").value.trim(), pass = document.getElementById("loginPass").value, err = document.getElementById("loginErr"); if (!email || !pass) return err.textContent = "Please fill in all fields.", void (err.style.display = "block"); const res = Auth.login(email, pass); if (!res.ok) return err.textContent = res.error, void (err.style.display = "block"); err.style.display = "none", showApp(res.user) } function doSignup() { const first = document.getElementById("signupFirst").value.trim(), last = document.getElementById("signupLast").value.trim(), company = document.getElementById("signupCompany").value.trim(), specialty = document.getElementById("signupSpecialty").value, email = document.getElementById("signupEmail").value.trim(), pass = document.getElementById("signupPass").value, err = document.getElementById("signupErr"); if (!(first && last && email && pass)) return err.textContent = "Please fill in all required fields.", void (err.style.display = "block"); const res = Auth.register(first, last, company, specialty, email, pass); if (!res.ok) return err.textContent = res.error, void (err.style.display = "block"); err.style.display = "none", showApp(res.user) } function doLogout() { Auth.logout(), S.user = null, document.getElementById("userMenu").classList.add("hidden"), showLanding() } function openSettings() { document.getElementById("userMenu").classList.add("hidden"); const u = S.user; u && (document.getElementById("stFirst").value = u.first || "", document.getElementById("stLast").value = u.last || "", document.getElementById("stCompany").value = u.company || "", document.getElementById("stEmail").value = u.email || "", document.getElementById("stPhone").value = u.settings?.phone || "", document.getElementById("stCity").value = u.settings?.city || "", document.getElementById("stApiKey").value = u.settings?.apiKey || "", document.getElementById("stSpecialty").value = u.specialty || "web design", document.getElementById("stTone").value = u.settings?.tone || "friendly", document.getElementById("stRadius").value = u.settings?.radius || 3e3, document.getElementById("settingsModal").classList.remove("hidden")) } function closeSettings() { document.getElementById("settingsModal").classList.add("hidden") } function toggleKeyVis() { const inp = document.getElementById("stApiKey"), btn = inp.nextElementSibling; "password" === inp.type ? (inp.type = "text", btn.textContent = "HIDE") : (inp.type = "password", btn.textContent = "SHOW") } function saveSettings() { const u = S.user; u && (u.first = document.getElementById("stFirst").value.trim(), u.last = document.getElementById("stLast").value.trim(), u.company = document.getElementById("stCompany").value.trim(), u.specialty = document.getElementById("stSpecialty").value, u.settings = u.settings || {}, u.settings.phone = document.getElementById("stPhone").value.trim(), u.settings.city = document.getElementById("stCity").value.trim(), u.settings.apiKey = document.getElementById("stApiKey").value.trim(), u.settings.tone = document.getElementById("stTone").value, u.settings.radius = parseInt(document.getElementById("stRadius").value), Auth.updateUser(u), S.user = u, document.getElementById("umName").textContent = `${u.first} ${u.last}`, document.getElementById("umCompany").textContent = u.company || "", closeSettings(), showToast("Settings saved!")) } function openTOS() { document.getElementById("tosModal").classList.remove("hidden") } function openPrivacy() { document.getElementById("privacyModal").classList.remove("hidden") } function closeModal(id) { document.getElementById(id).classList.add("hidden") } function initMap() { S.map = L.map("map", { center: [40.7128, -74.006], zoom: 4, zoomControl: !0 }), L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }).addTo(S.map) } async function handleGeolocate() { setLoading(!0, "Acquiring GPS…", "Please allow location access"); try { const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 1e4, enableHighAccuracy: !0 })), { latitude: lat, longitude: lng } = pos.coords; try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { headers: { "User-Agent": "BuzzApp/1.0" } }), d = await r.json(), name = d.address?.city || d.address?.town || d.address?.village || d.display_name; document.getElementById("searchInput").value = name, document.getElementById("sbSearchInput").value = name } catch { const c = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; document.getElementById("searchInput").value = c, document.getElementById("sbSearchInput").value = c } S.userLocation = { lat: lat, lng: lng }, setLoading(!1), executeSearch() } catch { setLoading(!1), showToast("GPS unavailable. Enter location manually.") } } async function geocode(query) { const urls = [`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`, `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1`]; try { const r = await fetch(urls[0], { headers: { "User-Agent": "BuzzApp/1.0" } }); if (r.ok) { const d = await r.json(); if (d?.length > 0) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) } } } catch { } try { const r = await fetch(urls[1]); if (r.ok) { const d = await r.json(); if (d?.features?.length > 0) return { lat: d.features[0].geometry.coordinates[1], lng: d.features[0].geometry.coordinates[0] } } } catch { } throw new Error("Could not resolve location. Try a different query.") } async function executeSearch() { const q = (document.getElementById("searchInput").value || document.getElementById("sbSearchInput").value).trim(); if (!q && !S.userLocation) return void showToast("Enter a location to search."); const rl = RateLimiter.canCall(); if (!rl.ok) { const toast = document.getElementById("rateLimitToast"); return toast.textContent = `⏳ Rate limited — wait ${rl.wait}s`, toast.classList.remove("hidden"), void setTimeout(() => toast.classList.add("hidden"), 1e3 * rl.wait) } document.getElementById("searchInput").value = q, document.getElementById("sbSearchInput").value = q, document.getElementById("sidebar").classList.add("open"); try { if (q) { setLoading(!0, "Resolving location…", q); const geo = await geocode(q); S.userLocation = { lat: geo.lat, lng: geo.lng } } RateLimiter.record(); const { lat: lat, lng: lng } = S.userLocation; S.map.setView([lat, lng], 14), setLoading(!0, "Scanning businesses…", `Radius: ${(S.searchRadius / 1e3).toFixed(1)} km`); const radius = S.searchRadius, δ = radius / 111e3, bbox = `${lat - δ},${lng - δ / Math.cos(lat * Math.PI / 180)},${lat + δ},${lng + δ / Math.cos(lat * Math.PI / 180)}`, oq = `[out:json][timeout:30];(\n nwr["shop"](${bbox});\n nwr["amenity"~"restaurant|cafe|bar|fast_food|bank|pharmacy|hospital|dentist|clinic|veterinary|fuel|post_office|library|cinema|theatre|community_centre|doctors|optician|hairdresser"](${bbox});\n nwr["office"](${bbox});\n nwr["tourism"~"hotel|motel|attraction|museum|gallery|hostel|guest_house"](${bbox});\n nwr["craft"](${bbox});\n nwr["leisure"~"fitness_centre|sports_centre|swimming_pool|golf_course|dance|yoga"](${bbox});\n nwr["healthcare"](${bbox});\n );out center tags;`, processed = processData(await fetchOverpass(oq), lat, lng, radius); S.businesses = processed, applyFilters(), renderList(), renderMarkers(), document.getElementById("apiStatus").textContent = `${processed.length} found` } catch (e) { showToast(e.message || "Search failed. Check connection."), document.getElementById("apiStatus").textContent = "Error" } finally { setLoading(!1) } } async function fetchOverpass(query) { const enc = encodeURIComponent(query); for (const mirror of CFG.OVERPASS_MIRRORS) try { const r = await fetch(`${mirror}?data=${enc}`); if (r.ok) return await r.json() } catch { } for (const proxy of CFG.CORS_PROXIES) for (const mirror of CFG.OVERPASS_MIRRORS) try { const r = await fetch(`${proxy}${encodeURIComponent(mirror + "?data=" + enc)}`); if (r.ok) return await r.json() } catch { } throw new Error("All data sources unreachable. Check your internet connection.") } function processData(data, cLat, cLng, radius) { const seen = new Set, res = []; for (const el of data.elements) { const t = el.tags || {}; if (t.website || t["contact:website"] || t.url || t["contact:url"]) continue; const name = t.name || t.brand || t.operator; if (!name || name.length < 2) continue; let lat = el.lat ?? el.center?.lat, lng = el.lon ?? el.center?.lon; if (!lat || !lng) continue; const dk = `${name.toLowerCase()}-${lat.toFixed(4)}-${lng.toFixed(4)}`; if (seen.has(dk)) continue; seen.add(dk); const dist = haversine(cLat, cLng, lat, lng); if (dist > radius) continue; const types = [t.shop, t.amenity, t.office, t.tourism, t.craft, t.leisure, t.healthcare].filter(Boolean), addr = fmtAddress(t), phone = t.phone || t["contact:phone"] || t["contact:mobile"] || null, email = t.email || t["contact:email"] || null, score = scoreOpportunity(t); res.push({ id: el.id.toString(), name: name, lat: lat, lng: lng, types: types, dist: dist, tags: t, addr: addr, addrShort: addr.slice(0, 2).join(", "), phone: phone, email: email, hours: fmtHours(t.opening_hours), operator: t.operator, brand: t.brand, description: t.description, cuisine: t.cuisine, wheelchair: t.wheelchair, parking: t.parking, outdoor: t.outdoor_seating, capacity: t.capacity, facebook: t["contact:facebook"] || t.facebook, instagram: t["contact:instagram"] || t.instagram, twitter: t["contact:twitter"] || t.twitter, score: score }) } return res.sort((a, b) => b.score - a.score || a.dist - b.dist), res } function applyFilters() { S.filtered = S.businesses.filter(b => !(S.scoreFilter > 0 && b.score < S.scoreFilter) && (!("all" !== S.typeFilter && !b.types.includes(S.typeFilter)) && (("active" !== S.statusFilter || !S.contacted.has(b.id)) && !("contacted" === S.statusFilter && !S.contacted.has(b.id))))), document.getElementById("resultCount").textContent = `${S.filtered.length} Lead${1 !== S.filtered.length ? "s" : ""}` } function populateTypeFilter() { const types = new Set; S.businesses.forEach(b => b.types.forEach(t => types.add(t))); const sel = document.getElementById("typeFilter"), cur = sel.value; sel.innerHTML = '<option value="all">All Categories</option>', [...types].sort().forEach(t => { const o = document.createElement("option"); o.value = t, o.textContent = t.replace(/_/g, " ").toUpperCase(), sel.appendChild(o) }), [...types].includes(cur) && (sel.value = cur) } function renderList() { populateTypeFilter(); const el = document.getElementById("bizList"); 0 !== S.filtered.length ? el.innerHTML = S.filtered.map((b, i) => { const isContacted = S.contacted.has(b.id), lbl = scoreLabel(b.score); return `<div class="biz-item ${S.selected?.id === b.id ? "selected" : ""} ${isContacted ? "contacted" : ""}" data-id="${b.id}">\n <div class="biz-row1">\n <div class="biz-name">${esc(b.name)}</div>\n <div class="biz-chk ${isContacted ? "on" : ""}" onclick="toggleContact('${b.id}',event)" title="Mark as contacted">\n ${isContacted ? '<svg viewBox="0 0 24 24" width="9" height="9" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>' : ""}\n </div>\n </div>\n ${b.addrShort ? `<div class="biz-addr">${esc(b.addrShort)}</div>` : ""}\n <div class="biz-meta">\n <span class="tag ${lbl}">${b.score}/100</span>\n <span class="biz-badge">${fmtDist(b.dist)}</span>\n ${b.phone ? '<span class="biz-badge has-phone">📞 Phone</span>' : ""}\n ${b.email ? '<span class="biz-badge has-email">✉ Email</span>' : ""}\n ${b.types[0] ? `<span class="biz-badge">${b.types[0].replace(/_/g, " ")}</span>` : ""}\n </div>\n </div>` }).join("") : el.innerHTML = `<div class="empty-st"><div class="empty-st-icon">🔍</div><p>${0 === S.businesses.length ? "No results yet.<br>Search a location above." : "No leads match your current filters.<br>Try adjusting the score or category filter."}</p></div>` } function renderMarkers() { if (S.markers.forEach(m => S.map.removeLayer(m)), S.waypoints.forEach(w => S.map.removeLayer(w)), S.markers = [], S.waypoints = [], S.userLocation) { S.radiusCircle && (S.map.removeLayer(S.radiusCircle), S.radiusCircle = null); const uIcon = L.divIcon({ className: "", iconSize: [16, 16], iconAnchor: [8, 8], html: '<div style="width:14px;height:14px;background:#fff;border:3px solid #000;border-radius:50%;box-shadow:0 0 0 2px #fff"></div>' }), uM = L.marker([S.userLocation.lat, S.userLocation.lng], { icon: uIcon }).addTo(S.map); uM.bindPopup('<strong style="font-family:monospace">Search Origin</strong>'), S.markers.push(uM), S.radiusCircle = L.circle([S.userLocation.lat, S.userLocation.lng], { radius: S.searchRadius, color: "#fff", fillColor: "#fff", fillOpacity: .025, weight: 1, dashArray: "4 6" }).addTo(S.map) } S.filtered.forEach((b, i) => { const contacted = S.contacted.has(b.id), lbl = scoreLabel(b.score), col = "hot" === lbl ? "#ef4444" : "warm" === lbl ? "#f59e0b" : "#3b82f6", icon = L.divIcon({ className: "", iconSize: [10, 10], iconAnchor: [5, 5], html: `<div style="width:10px;height:10px;background:${contacted ? "#404040" : col};border-radius:50%;${contacted ? "opacity:.4" : ""}"></div>` }), m = L.marker([b.lat, b.lng], { icon: icon }).addTo(S.map); m.bindPopup(`\n <div style="font-family:monospace;font-size:12px">\n <strong>${esc(b.name)}</strong><br>\n <small style="color:#888">#${i + 1} · Score: ${b.score}/100</small><br>\n ${b.addrShort ? esc(b.addrShort) + "<br>" : ""}\n ${b.phone ? "📞 " + esc(b.phone) + "<br>" : ""}\n ${contacted ? '<span style="color:#22c55e">✓ Contacted</span>' : ""}\n </div>\n `), m.on("click", () => selectBusiness(b.id)), S.markers.push(m); const wpIcon = L.divIcon({ className: "", iconSize: [28, 18], iconAnchor: [14, -8], html: `<div class="wp-label">${i + 1}</div>` }), wp = L.marker([b.lat, b.lng], { icon: wpIcon, interactive: !1 }).addTo(S.map); S.waypoints.push(wp) }) } function updateRadiusCircle() { S.radiusCircle && S.radiusCircle.setRadius(S.searchRadius) } function selectBusiness(id) { const b = S.filtered.find(x => x.id === id); b && (S.selected = b, renderList(), S.map.setView([b.lat, b.lng], 16), showDetails(b), window.innerWidth <= 768 && document.getElementById("sidebar").classList.remove("open")) } function toggleContact(id, e) { e.stopPropagation(), S.contacted.has(id) ? S.contacted.delete(id) : S.contacted.add(id), saveContacted(), applyFilters(), renderList(), renderMarkers() } function showDetails(b) { document.getElementById("detailsPanel").classList.add("open"), document.getElementById("dpBizName").textContent = b.name; const lbl = scoreLabel(b.score); document.getElementById("dpBizMeta").innerHTML = `\n <span class="tag ${lbl}">${b.score}/100</span>\n <span class="tag grey">${fmtDist(b.dist)}</span>\n ${b.types.slice(0, 2).map(t => `<span class="tag grey">${t.replace(/_/g, " ")}</span>`).join("")}\n `, document.querySelectorAll(".dp-tab").forEach(t => t.classList.toggle("active", "infoPane" === t.dataset.tab)), document.querySelectorAll(".dp-tab-pane").forEach(p => p.classList.toggle("active", "infoPane" === p.id)), renderInfoPane(b), renderValuationPane(b), renderPitchPane(b), renderEmailPane(b) } function renderInfoPane(b) { const gmQuery = encodeURIComponent(`${b.name} ${b.addrShort}`), osmUrl = `https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lng}&zoom=17`, gmUrl = `https://maps.google.com/?q=${b.lat},${b.lng}`, dirUrl = `https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}`, searchUrl = `https://www.google.com/search?q=${gmQuery}`; let html = `\n <div class="sec">\n <div class="sec-title">Location</div>\n <div class="info-block">\n ${b.addr.length > 0 ? b.addr.map(l => `<div style="font-size:13px;line-height:1.6;font-family:var(--mono)">${esc(l)}</div>`).join("") : '<div style="font-size:12px;color:var(--text3)">Address not listed in OpenStreetMap</div>'}\n </div>\n <div class="info-2col" style="margin-top:8px">\n <div class="info-cell">\n <div class="info-cell-lbl">Coordinates</div>\n <div class="info-cell-val">${b.lat.toFixed(5)}, ${b.lng.toFixed(5)}</div>\n </div>\n <div class="info-cell">\n <div class="info-cell-lbl">Distance</div>\n <div class="info-cell-val">${fmtDist(b.dist)}</div>\n </div>\n </div>\n <div class="ext-links" style="margin-top:10px">\n <a href="${gmUrl}" target="_blank" class="ext-link">📍 Google Maps</a>\n <a href="${dirUrl}" target="_blank" class="ext-link">🧭 Directions</a>\n <a href="${osmUrl}" target="_blank" class="ext-link">🗺 OpenStreetMap</a>\n <a href="${searchUrl}" target="_blank" class="ext-link">🔍 Google Search</a>\n </div>\n </div>`; b.phone || b.email || b.facebook || b.instagram ? (html += '<div class="sec"><div class="sec-title">Contact Information</div><div class="info-block">', b.phone && (html += `\n <div class="contact-row">\n <div class="contact-icon">📞</div>\n <div>\n <div class="contact-lbl">Phone</div>\n <div class="contact-val"><a href="tel:${esc(b.phone)}">${esc(b.phone)}</a></div>\n </div>\n </div>`), b.email && (html += `\n <div class="contact-row">\n <div class="contact-icon">✉</div>\n <div>\n <div class="contact-lbl">Email</div>\n <div class="contact-val"><a href="mailto:${esc(b.email)}">${esc(b.email)}</a></div>\n </div>\n </div>`), b.facebook && (html += `\n <div class="contact-row">\n <div class="contact-icon">f</div>\n <div>\n <div class="contact-lbl">Facebook</div>\n <div class="contact-val"><a href="${esc(b.facebook)}" target="_blank">${esc(b.facebook.replace(/https?:\/\/(www\.)?facebook\.com\
+    </script>
+</body>
+
+</html>
